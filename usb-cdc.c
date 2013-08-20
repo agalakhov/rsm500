@@ -9,6 +9,8 @@
 
 #include "common.h"
 
+#include "debug.h"
+
 /*
  * Communication endpoints and interface
  */
@@ -124,6 +126,7 @@ struct cdcacm_io_rec {
 };
 
 static usbd_device *cdcacm_dev = NULL;
+bool cdcacm_ready = false;
 
 static struct cdcacm_io_rec cdcacm_rx_rec = {
 	.cb = NULL,
@@ -165,6 +168,8 @@ static int cdcacm_control_request(usbd_device *dev, struct usb_setup_data *req,
 	(void)buf;
 	(void)dev;
 
+	gpio_toggle(DBGO, DBG_B);
+
 	switch (req->bRequest) {
 	case USB_CDC_REQ_SET_CONTROL_LINE_STATE:
 		return 1;
@@ -181,6 +186,8 @@ static void cdcacm_set_config(usbd_device *dev, uint16_t wValue)
 {
 	(void)wValue;
 
+	gpio_toggle(DBGO, DBG_R);
+
 	usbd_ep_setup(dev, 0x01, USB_ENDPOINT_ATTR_BULK, 64, cdcacm_data_rx_cb);
 	usbd_ep_setup(dev, 0x82, USB_ENDPOINT_ATTR_BULK, 64, cdcacm_data_tx_cb);
 	usbd_ep_setup(dev, 0x83, USB_ENDPOINT_ATTR_INTERRUPT, 16, NULL);
@@ -189,6 +196,8 @@ static void cdcacm_set_config(usbd_device *dev, uint16_t wValue)
 				USB_REQ_TYPE_CLASS | USB_REQ_TYPE_INTERFACE,
 				USB_REQ_TYPE_TYPE | USB_REQ_TYPE_RECIPIENT,
 				cdcacm_control_request);
+
+	cdcacm_ready = true;
 }
 
 /*
@@ -206,6 +215,8 @@ static inline int cdcacm_setup_io(struct cdcacm_io_rec *io,
 {
 	if (! cdcacm_dev)
 		return -ENODEV;
+	if (! cdcacm_ready)
+		return -EAGAIN;
 	if (io->cb)
 		return -EAGAIN;
 	io->cb = cb;
@@ -244,6 +255,8 @@ int cdcacm_read_sync(void *buf, size_t size)
 {
 	int ret;
 	int cbret = -1;
+	while (! cdcacm_ready)
+		cdcacm_poll_usb();
 	ret = cdcacm_read(buf, size, cdcacm_sync_cb, (intptr_t) &cbret);
 	if (ret)
 		return ret;
@@ -256,6 +269,8 @@ int cdcacm_write_sync(const void *buf, size_t size)
 {
 	int ret;
 	int cbret = -1;
+	while (! cdcacm_ready)
+		cdcacm_poll_usb();
 	ret = cdcacm_write(buf, size, cdcacm_sync_cb, (intptr_t) &cbret);
 	if (ret)
 		return ret;

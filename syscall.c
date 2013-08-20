@@ -8,6 +8,10 @@ enum {
 	STACK_RESERVE = 128,
 };
 
+/*
+ *  Memory allocator
+ */
+
 caddr_t _sbrk(int incr)
 {
 	extern char end __asm__("end"); /* Defined by the linker */

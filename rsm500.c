@@ -46,11 +46,9 @@ int main(void)
 	systick_interrupt_enable();
 	systick_counter_enable();
 
-	//cprintf("RSM-500 spectrometer ready\n");
+	cprintf("RSM-500 spectrometer ready\n");
 	while (1) {
-//		cdcacm_poll_usb();
 		console_poll();
-
 	}
 
 	return 0;
